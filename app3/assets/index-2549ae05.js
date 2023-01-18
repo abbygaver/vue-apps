@@ -3059,7 +3059,7 @@ function createAppContext() {
 }
 let uid = 0;
 function createAppAPI(render, hydrate) {
-  return function createApp2(rootComponent, rootProps = null) {
+  return function createApp3(rootComponent, rootProps = null) {
     if (!isFunction(rootComponent)) {
       rootComponent = Object.assign({}, rootComponent);
     }
@@ -5027,7 +5027,7 @@ function normalizeContainer(container) {
   }
   return container;
 }
-const _imports_0 = "/app2/assets/logo-da9b9095.svg";
+const _imports_0 = "/app3/assets/logo-da9b9095.svg";
 const HelloWorld_vue_vue_type_style_index_0_scoped_3ba3ab19_lang = "";
 const _export_sfc = (sfc, props) => {
   const target = sfc.__vccOpts || sfc;
