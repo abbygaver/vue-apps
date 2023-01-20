@@ -3042,7 +3042,7 @@ function createAppContext() {
 }
 let uid = 0;
 function createAppAPI(render, hydrate) {
-  return function createApp2(rootComponent, rootProps = null) {
+  return function createApp4(rootComponent, rootProps = null) {
     if (!isFunction(rootComponent)) {
       rootComponent = Object.assign({}, rootComponent);
     }
