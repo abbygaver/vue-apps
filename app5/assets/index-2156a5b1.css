@@ -1,0 +1,24 @@
+
+img {
+    display: inline-block;
+    width: 50%;
+}
+
+.Normal {
+    color: black;
+    font-weight: normal;
+}
+.newStyle {
+    color: hotpink;
+    font-weight: bolder;
+}
+
+  /*class test
+  .red {
+    color: red;
+  }
+
+  .blue {
+    color: blue;
+  }*/
+
