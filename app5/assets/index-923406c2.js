@@ -104,6 +104,28 @@ const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
 function includeBooleanAttr(value) {
   return !!value || value === "";
 }
+const toDisplayString = (val) => {
+  return isString(val) ? val : val == null ? "" : isArray(val) || isObject(val) && (val.toString === objectToString || !isFunction(val.toString)) ? JSON.stringify(val, replacer, 2) : String(val);
+};
+const replacer = (_key, val) => {
+  if (val && val.__v_isRef) {
+    return replacer(_key, val.value);
+  } else if (isMap(val)) {
+    return {
+      [`Map(${val.size})`]: [...val.entries()].reduce((entries, [key, val2]) => {
+        entries[`${key} =>`] = val2;
+        return entries;
+      }, {})
+    };
+  } else if (isSet(val)) {
+    return {
+      [`Set(${val.size})`]: [...val.values()]
+    };
+  } else if (isObject(val) && !isArray(val) && !isPlainObject(val)) {
+    return String(val);
+  }
+  return val;
+};
 const EMPTY_OBJ = {};
 const EMPTY_ARR = [];
 const NOOP = () => {
@@ -985,27 +1007,58 @@ function markRaw(value) {
 }
 const toReactive = (value) => isObject(value) ? reactive(value) : value;
 const toReadonly = (value) => isObject(value) ? readonly(value) : value;
-function trackRefValue(ref) {
+function trackRefValue(ref2) {
   if (shouldTrack && activeEffect) {
-    ref = toRaw(ref);
+    ref2 = toRaw(ref2);
     {
-      trackEffects(ref.dep || (ref.dep = createDep()));
+      trackEffects(ref2.dep || (ref2.dep = createDep()));
     }
   }
 }
-function triggerRefValue(ref, newVal) {
-  ref = toRaw(ref);
-  if (ref.dep) {
+function triggerRefValue(ref2, newVal) {
+  ref2 = toRaw(ref2);
+  if (ref2.dep) {
     {
-      triggerEffects(ref.dep);
+      triggerEffects(ref2.dep);
     }
   }
 }
 function isRef(r) {
   return !!(r && r.__v_isRef === true);
 }
-function unref(ref) {
-  return isRef(ref) ? ref.value : ref;
+function ref(value) {
+  return createRef(value, false);
+}
+function createRef(rawValue, shallow) {
+  if (isRef(rawValue)) {
+    return rawValue;
+  }
+  return new RefImpl(rawValue, shallow);
+}
+class RefImpl {
+  constructor(value, __v_isShallow) {
+    this.__v_isShallow = __v_isShallow;
+    this.dep = void 0;
+    this.__v_isRef = true;
+    this._rawValue = __v_isShallow ? value : toRaw(value);
+    this._value = __v_isShallow ? value : toReactive(value);
+  }
+  get value() {
+    trackRefValue(this);
+    return this._value;
+  }
+  set value(newVal) {
+    const useDirectValue = this.__v_isShallow || isShallow(newVal) || isReadonly(newVal);
+    newVal = useDirectValue ? newVal : toRaw(newVal);
+    if (hasChanged(newVal, this._rawValue)) {
+      this._rawValue = newVal;
+      this._value = useDirectValue ? newVal : toReactive(newVal);
+      triggerRefValue(this);
+    }
+  }
+}
+function unref(ref2) {
+  return isRef(ref2) ? ref2.value : ref2;
 }
 const shallowUnwrapHandlers = {
   get: (target, key, receiver) => unref(Reflect.get(target, key, receiver)),
@@ -2166,40 +2219,7 @@ function invokeDirectiveHook(vnode, prevVNode, instance, name) {
     }
   }
 }
-const COMPONENTS = "components";
-function resolveComponent(name, maybeSelfReference) {
-  return resolveAsset(COMPONENTS, name, true, maybeSelfReference) || name;
-}
 const NULL_DYNAMIC_COMPONENT = Symbol();
-function resolveAsset(type, name, warnMissing = true, maybeSelfReference = false) {
-  const instance = currentRenderingInstance || currentInstance;
-  if (instance) {
-    const Component = instance.type;
-    if (type === COMPONENTS) {
-      const selfName = getComponentName(
-        Component,
-        false
-        /* do not include inferred name to avoid breaking existing code */
-      );
-      if (selfName && (selfName === name || selfName === camelize(name) || selfName === capitalize(camelize(name)))) {
-        return Component;
-      }
-    }
-    const res = (
-      // local registration
-      // check instance[type] first which is resolved for options API
-      resolve(instance[type] || Component[type], name) || // global registration
-      resolve(instance.appContext[type], name)
-    );
-    if (!res && maybeSelfReference) {
-      return Component;
-    }
-    return res;
-  }
-}
-function resolve(registry, name) {
-  return registry && (registry[name] || registry[camelize(name)] || registry[capitalize(camelize(name))]);
-}
 const getPublicInstance = (i) => {
   if (!i)
     return null;
@@ -3119,11 +3139,11 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
   }
   const refValue = vnode.shapeFlag & 4 ? getExposeProxy(vnode.component) || vnode.component.proxy : vnode.el;
   const value = isUnmount ? null : refValue;
-  const { i: owner, r: ref } = rawRef;
+  const { i: owner, r: ref2 } = rawRef;
   const oldRef = oldRawRef && oldRawRef.r;
   const refs = owner.refs === EMPTY_OBJ ? owner.refs = {} : owner.refs;
   const setupState = owner.setupState;
-  if (oldRef != null && oldRef !== ref) {
+  if (oldRef != null && oldRef !== ref2) {
     if (isString(oldRef)) {
       refs[oldRef] = null;
       if (hasOwn(setupState, oldRef)) {
@@ -3133,40 +3153,40 @@ function setRef(rawRef, oldRawRef, parentSuspense, vnode, isUnmount = false) {
       oldRef.value = null;
     }
   }
-  if (isFunction(ref)) {
-    callWithErrorHandling(ref, owner, 12, [value, refs]);
+  if (isFunction(ref2)) {
+    callWithErrorHandling(ref2, owner, 12, [value, refs]);
   } else {
-    const _isString = isString(ref);
-    const _isRef = isRef(ref);
+    const _isString = isString(ref2);
+    const _isRef = isRef(ref2);
     if (_isString || _isRef) {
       const doSet = () => {
         if (rawRef.f) {
-          const existing = _isString ? hasOwn(setupState, ref) ? setupState[ref] : refs[ref] : ref.value;
+          const existing = _isString ? hasOwn(setupState, ref2) ? setupState[ref2] : refs[ref2] : ref2.value;
           if (isUnmount) {
             isArray(existing) && remove(existing, refValue);
           } else {
             if (!isArray(existing)) {
               if (_isString) {
-                refs[ref] = [refValue];
-                if (hasOwn(setupState, ref)) {
-                  setupState[ref] = refs[ref];
+                refs[ref2] = [refValue];
+                if (hasOwn(setupState, ref2)) {
+                  setupState[ref2] = refs[ref2];
                 }
               } else {
-                ref.value = [refValue];
+                ref2.value = [refValue];
                 if (rawRef.k)
-                  refs[rawRef.k] = ref.value;
+                  refs[rawRef.k] = ref2.value;
               }
             } else if (!existing.includes(refValue)) {
               existing.push(refValue);
             }
           }
         } else if (_isString) {
-          refs[ref] = value;
-          if (hasOwn(setupState, ref)) {
-            setupState[ref] = value;
+          refs[ref2] = value;
+          if (hasOwn(setupState, ref2)) {
+            setupState[ref2] = value;
           }
         } else if (_isRef) {
-          ref.value = value;
+          ref2.value = value;
           if (rawRef.k)
             refs[rawRef.k] = value;
         } else
@@ -3202,7 +3222,7 @@ function baseCreateRenderer(options, createHydrationFns) {
       optimized = false;
       n2.dynamicChildren = null;
     }
-    const { type, ref, shapeFlag } = n2;
+    const { type, ref: ref2, shapeFlag } = n2;
     switch (type) {
       case Text:
         processText(n1, n2, container, anchor);
@@ -3230,8 +3250,8 @@ function baseCreateRenderer(options, createHydrationFns) {
         } else
           ;
     }
-    if (ref != null && parentComponent) {
-      setRef(ref, n1 && n1.ref, parentSuspense, n2 || n1, !n2);
+    if (ref2 != null && parentComponent) {
+      setRef(ref2, n1 && n1.ref, parentSuspense, n2 || n1, !n2);
     }
   };
   const processText = (n1, n2, container, anchor) => {
@@ -3864,9 +3884,9 @@ function baseCreateRenderer(options, createHydrationFns) {
     }
   };
   const unmount = (vnode, parentComponent, parentSuspense, doRemove = false, optimized = false) => {
-    const { type, props, ref, children, dynamicChildren, shapeFlag, patchFlag, dirs } = vnode;
-    if (ref != null) {
-      setRef(ref, null, parentSuspense, vnode, true);
+    const { type, props, ref: ref2, children, dynamicChildren, shapeFlag, patchFlag, dirs } = vnode;
+    if (ref2 != null) {
+      setRef(ref2, null, parentSuspense, vnode, true);
     }
     if (shapeFlag & 256) {
       parentComponent.ctx.deactivate(vnode);
@@ -4120,17 +4140,6 @@ function createElementBlock(type, props, children, patchFlag, dynamicProps, shap
     /* isBlock */
   ));
 }
-function createBlock(type, props, children, patchFlag, dynamicProps) {
-  return setupBlock(createVNode(
-    type,
-    props,
-    children,
-    patchFlag,
-    dynamicProps,
-    true
-    /* isBlock: prevent a block from tracking itself */
-  ));
-}
 function isVNode(value) {
   return value ? value.__v_isVNode === true : false;
 }
@@ -4139,8 +4148,8 @@ function isSameVNodeType(n1, n2) {
 }
 const InternalObjectKey = `__vInternal`;
 const normalizeKey = ({ key }) => key != null ? key : null;
-const normalizeRef = ({ ref, ref_key, ref_for }) => {
-  return ref != null ? isString(ref) || isRef(ref) || isFunction(ref) ? { i: currentRenderingInstance, r: ref, k: ref_key, f: !!ref_for } : ref : null;
+const normalizeRef = ({ ref: ref2, ref_key, ref_for }) => {
+  return ref2 != null ? isString(ref2) || isRef(ref2) || isFunction(ref2) ? { i: currentRenderingInstance, r: ref2, k: ref_key, f: !!ref_for } : ref2 : null;
 };
 function createBaseVNode(type, props = null, children = null, patchFlag = 0, dynamicProps = null, shapeFlag = type === Fragment ? 0 : 1, isBlockNode = false, needFullChildrenNormalization = false) {
   const vnode = {
@@ -4242,7 +4251,7 @@ function guardReactiveProps(props) {
   return isProxy(props) || InternalObjectKey in props ? extend({}, props) : props;
 }
 function cloneVNode(vnode, extraProps, mergeRef = false) {
-  const { props, ref, patchFlag, children } = vnode;
+  const { props, ref: ref2, patchFlag, children } = vnode;
   const mergedProps = extraProps ? mergeProps(props || {}, extraProps) : props;
   const cloned = {
     __v_isVNode: true,
@@ -4254,8 +4263,8 @@ function cloneVNode(vnode, extraProps, mergeRef = false) {
       // #2078 in the case of <component :is="vnode" ref="extra"/>
       // if the vnode itself already has a ref, cloneVNode will need to merge
       // the refs so the single vnode can be set on multiple refs
-      mergeRef && ref ? isArray(ref) ? ref.concat(normalizeRef(extraProps)) : [ref, normalizeRef(extraProps)] : normalizeRef(extraProps)
-    ) : ref,
+      mergeRef && ref2 ? isArray(ref2) ? ref2.concat(normalizeRef(extraProps)) : [ref2, normalizeRef(extraProps)] : normalizeRef(extraProps)
+    ) : ref2,
     scopeId: vnode.scopeId,
     slotScopeIds: vnode.slotScopeIds,
     children,
@@ -4606,9 +4615,6 @@ function getExposeProxy(instance) {
       }
     }));
   }
-}
-function getComponentName(Component, includeInferred = true) {
-  return isFunction(Component) ? Component.displayName || Component.name : Component.name || includeInferred && Component.__name;
 }
 function isClassComponent(value) {
   return isFunction(value) && "__vccOpts" in value;
@@ -4993,41 +4999,63 @@ function normalizeContainer(container) {
   }
   return container;
 }
-const _imports_0 = "/app5/assets/life-c481e0a2.png";
-const Logo_vue_vue_type_style_index_0_lang = "";
-const _export_sfc = (sfc, props) => {
-  const target = sfc.__vccOpts || sfc;
-  for (const [key, val] of props) {
-    target[key] = val;
+const sunset_vue_vue_type_style_index_0_lang = "";
+const _hoisted_1 = ["src"];
+const _sfc_main$2 = {
+  __name: "sunset",
+  setup(__props) {
+    const title = ref("Beautiful Sunset");
+    const sunset_image = ref("/sunset_image.jpg");
+    return (_ctx, _cache) => {
+      return openBlock(), createElementBlock(Fragment, null, [
+        createBaseVNode("h1", null, toDisplayString(title.value), 1),
+        createBaseVNode("img", { src: sunset_image.value }, null, 8, _hoisted_1)
+      ], 64);
+    };
   }
-  return target;
 };
-const _sfc_main$1 = {};
-const _hoisted_1 = { id: "meaning" };
-const _hoisted_2 = /* @__PURE__ */ createBaseVNode("div", { id: "title" }, "The Meaning of Life (cheesy)", -1);
-const _hoisted_3 = /* @__PURE__ */ createBaseVNode("img", {
-  alt: "Meaning of Life: my sisters!",
-  src: _imports_0
-}, null, -1);
-const _hoisted_4 = /* @__PURE__ */ createBaseVNode("div", { id: "subtitle" }, "My sisters!", -1);
-const _hoisted_5 = [
-  _hoisted_2,
-  _hoisted_3,
-  _hoisted_4
-];
-function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
-  return openBlock(), createElementBlock("div", _hoisted_1, _hoisted_5);
-}
-const Logo = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render$1]]);
+const lorem_ipsum_vue_vue_type_style_index_0_lang = "";
+const _sfc_main$1 = {
+  __name: "lorem_ipsum",
+  setup(__props) {
+    const title2 = ref("Lorem Ipsum");
+    const lorem_p1 = ref("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Massa sapien faucibus et molestie. Consequat id porta nibh venenatis cras sed felis. Ornare suspendisse sed nisi lacus sed. Ornare aenean euismod elementum nisi quis eleifend quam adipiscing. Sed faucibus turpis in eu mi bibendum neque. Quis auctor elit sed vulputate mi sit amet. Mauris vitae ultricies leo integer malesuada. Nec sagittis aliquam malesuada bibendum arcu. Sem viverra aliquet eget sit amet. Tincidunt vitae semper quis lectus nulla. Porttitor rhoncus dolor purus non enim praesent. Diam vel quam elementum pulvinar etiam non. Blandit massa enim nec dui nunc mattis enim ut. Aliquam malesuada bibendum arcu vitae elementum curabitur vitae nunc sed.");
+    const lorem_p2 = ref("Mi quis hendrerit dolor magna eget est lorem ipsum. Mi quis hendrerit dolor magna eget est lorem. Et netus et malesuada fames. Semper auctor neque vitae tempus quam pellentesque. Sapien faucibus et molestie ac feugiat sed lectus vestibulum. Fringilla urna porttitor rhoncus dolor. Scelerisque fermentum dui faucibus in. Metus vulputate eu scelerisque felis imperdiet proin fermentum leo. Fermentum iaculis eu non diam phasellus vestibulum lorem sed risus. Cursus metus aliquam eleifend mi in. Vulputate eu scelerisque felis imperdiet proin. Viverra orci sagittis eu volutpat odio facilisis.");
+    const lorem_p3 = ref("Eu feugiat pretium nibh ipsum consequat nisl vel. At erat pellentesque adipiscing commodo elit at. Massa tincidunt dui ut ornare lectus sit amet est. Erat imperdiet sed euismod nisi porta lorem mollis aliquam. Id donec ultrices tincidunt arcu non sodales neque sodales. Nibh sed pulvinar proin gravida hendrerit lectus. Nulla malesuada pellentesque elit eget gravida cum sociis natoque penatibus. Ut lectus arcu bibendum at. Dui vivamus arcu felis bibendum ut. Convallis aenean et tortor at. Ac ut consequat semper viverra nam libero justo laoreet sit. Ullamcorper dignissim cras tincidunt lobortis feugiat vivamus at. Enim nunc faucibus a pellentesque. Faucibus interdum posuere lorem ipsum dolor sit.");
+    const textDec = ref("Normal");
+    function changeText() {
+      textDec.value = textDec.value == "Normal" ? "newStyle" : "Normal";
+    }
+    function resetText() {
+      textDec.value = "Normal";
+    }
+    return (_ctx, _cache) => {
+      return openBlock(), createElementBlock(Fragment, null, [
+        createBaseVNode("h1", null, toDisplayString(title2.value), 1),
+        createBaseVNode("span", {
+          class: normalizeClass(textDec.value)
+        }, [
+          createBaseVNode("p", null, toDisplayString(lorem_p1.value), 1),
+          createBaseVNode("p", null, toDisplayString(lorem_p2.value), 1),
+          createBaseVNode("p", null, toDisplayString(lorem_p3.value), 1)
+        ], 2),
+        createBaseVNode("button", { onClick: changeText }, "Change text DRAMATICALLY"),
+        createBaseVNode("button", { onClick: resetText }, "Reset text to Normal")
+      ], 64);
+    };
+  }
+};
+const App_vue_vue_type_style_index_0_lang = "";
 const _sfc_main = {
-  components: {
-    Logo
+  __name: "App",
+  setup(__props) {
+    return (_ctx, _cache) => {
+      return openBlock(), createElementBlock(Fragment, null, [
+        createVNode(_sfc_main$2),
+        createVNode(_sfc_main$1)
+      ], 64);
+    };
   }
 };
-function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
-  const _component_Logo = resolveComponent("Logo");
-  return openBlock(), createBlock(_component_Logo);
-}
-const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render]]);
 const main = "";
-createApp(App).mount("#app");
+createApp(_sfc_main).mount("#app");
