@@ -1,0 +1,15 @@
+
+.link {
+        margin: 5px;
+}
+
+main {
+        display: block;
+        padding: 50px;
+        margin: 50px;
+        background-color: #f3e4b1;
+}
+
+.homeImg {
+        max-width: 50%;
+}
