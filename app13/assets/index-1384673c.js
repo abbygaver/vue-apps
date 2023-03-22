@@ -7060,17 +7060,17 @@ const itemList = [
   {
     name: "Finley",
     desc: "It's my dog, Finley. :)",
-    image: "/finley.png"
+    image: "../finley.png"
   },
   {
     name: "Matcha",
     desc: "My favorite fun little drink: Matcha.",
-    image: "/matcha.jpg"
+    image: "../matcha.jpg"
   },
   {
     name: "Macarons",
     desc: "Some pretty macarons (they were so good).",
-    image: "/macarons.jpg"
+    image: "../macarons.jpg"
   }
 ];
 const _hoisted_1$1 = { class: "card" };
