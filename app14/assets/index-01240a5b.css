@@ -1,0 +1,19 @@
+
+.link {
+        margin: 5px;
+}
+
+.card {
+        width: 25em;
+}
+
+main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 50px;
+}
+#editStyle {
+        padding: 50px;
+}
+
