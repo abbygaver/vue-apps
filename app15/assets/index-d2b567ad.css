@@ -1,0 +1,51 @@
+
+#words {
+        padding: 5px;
+        text-align: right;
+}
+#pink {
+        height: 100%;
+        background-color: pink;
+}
+
+#words2 {
+        padding: 5px;
+        text-align: center;
+}
+#green {
+        max-width: 100%;
+        height: 100%;
+        background-color: green;
+}
+
+#parent {
+        padding: 5px;
+        max-width: 100%;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(3, 0.15fr);
+        grid-column-gap: 3px;
+        grid-row-gap: 3px;
+}
+.div1 { 
+        grid-area: 1 / 1 / 2 / 5;
+}
+.div2 { 
+        grid-area: 2 / 1 / 3 / 2;
+}
+.div3 { 
+        grid-area: 2 / 2 / 3 / 5;
+}
+.div4 {
+        grid-area: 3 / 4 / 4 / 5;
+}
+.div5 { 
+        grid-area: 3 / 1 / 4 / 4;
+}
+.div6 { 
+        grid-area: 4 / 1 / 5 / 5;
+}
+img {
+        max-width: 100%;
+        object-fit: fill;
+}
